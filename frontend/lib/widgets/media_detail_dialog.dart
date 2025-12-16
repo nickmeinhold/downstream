@@ -81,11 +81,13 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
 
     Navigator.of(context).pop();
 
+    // Search without year - dialog will detect ambiguous results and offer filtering
     showDialog(
       context: context,
       builder: (context) => TorrentSearchDialog(
-        initialQuery: year.isNotEmpty ? '$title $year' : title,
+        initialQuery: title,
         category: mediaType,
+        expectedYear: year.isNotEmpty ? year : null,
       ),
     );
   }

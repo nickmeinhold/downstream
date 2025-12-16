@@ -226,6 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   DropdownMenuItem(value: 14, child: Text('Last 14 days')),
                   DropdownMenuItem(value: 30, child: Text('Last 30 days')),
                   DropdownMenuItem(value: 90, child: Text('Last 90 days')),
+                  DropdownMenuItem(value: 180, child: Text('Last 6 months')),
+                  DropdownMenuItem(value: 365, child: Text('Last year')),
+                  DropdownMenuItem(value: 730, child: Text('Last 2 years')),
                 ],
                 onChanged: (value) {
                   if (value != null) {

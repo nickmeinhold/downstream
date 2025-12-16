@@ -5,11 +5,13 @@ import '../services/api_service.dart';
 class TorrentSearchDialog extends StatefulWidget {
   final String initialQuery;
   final String? category;
+  final String? expectedYear;
 
   const TorrentSearchDialog({
     super.key,
     required this.initialQuery,
     this.category,
+    this.expectedYear,
   });
 
   @override
@@ -22,6 +24,8 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
   bool _isLoading = false;
   String? _error;
   int? _downloadingIndex;
+  Set<String> _detectedYears = {};
+  String? _selectedYear;
 
   @override
   void initState() {
@@ -36,12 +40,20 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
     super.dispose();
   }
 
+  // Extract year from torrent title (looks for 4-digit year patterns like 2023, 2024)
+  String? _extractYear(String title) {
+    final yearMatch = RegExp(r'\b(19\d{2}|20\d{2})\b').firstMatch(title);
+    return yearMatch?.group(1);
+  }
+
   Future<void> _search() async {
     if (_searchController.text.isEmpty) return;
 
     setState(() {
       _isLoading = true;
       _error = null;
+      _selectedYear = null;
+      _detectedYears = {};
     });
 
     try {
@@ -51,10 +63,25 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
         category: widget.category,
       );
 
+      // Detect years in results
+      final years = <String>{};
+      for (final result in results) {
+        final title = result['title'] as String? ?? '';
+        final year = _extractYear(title);
+        if (year != null) {
+          years.add(year);
+        }
+      }
+
       if (mounted) {
         setState(() {
           _results = results;
+          _detectedYears = years;
           _isLoading = false;
+          // Auto-select expected year if multiple years detected
+          if (years.length > 1 && widget.expectedYear != null && years.contains(widget.expectedYear)) {
+            _selectedYear = widget.expectedYear;
+          }
         });
       }
     } catch (e) {
@@ -67,8 +94,7 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
     }
   }
 
-  Future<void> _download(int index) async {
-    final result = _results[index] as Map<String, dynamic>;
+  Future<void> _download(Map<String, dynamic> result) async {
     final url = result['magnetUri'] ?? result['link'];
 
     if (url == null) {
@@ -78,6 +104,8 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
       return;
     }
 
+    // Find the index in original results for loading indicator
+    final index = _results.indexOf(result);
     setState(() => _downloadingIndex = index);
 
     try {
@@ -150,6 +178,40 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
                 ],
               ),
             ),
+            // Year filter (shown when multiple years detected)
+            if (_detectedYears.length > 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Multiple versions found - select year:',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        FilterChip(
+                          label: const Text('All'),
+                          selected: _selectedYear == null,
+                          onSelected: (_) => setState(() => _selectedYear = null),
+                        ),
+                        ...(_detectedYears.toList()..sort((a, b) => b.compareTo(a)))
+                            .map((year) => FilterChip(
+                                  label: Text(year),
+                                  selected: _selectedYear == year,
+                                  onSelected: (_) => setState(() => _selectedYear = year),
+                                )),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
             // Results
             Expanded(
               child: _buildResults(),
@@ -187,7 +249,16 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
       );
     }
 
-    if (_results.isEmpty) {
+    // Filter results by selected year
+    final filteredResults = _selectedYear == null
+        ? _results
+        : _results.where((result) {
+            final title = result['title'] as String? ?? '';
+            final year = _extractYear(title);
+            return year == _selectedYear;
+          }).toList();
+
+    if (filteredResults.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -198,16 +269,16 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 16),
-            const Text('No results found'),
+            Text(_results.isEmpty ? 'No results found' : 'No results for $_selectedYear'),
           ],
         ),
       );
     }
 
     return ListView.builder(
-      itemCount: _results.length,
+      itemCount: filteredResults.length,
       itemBuilder: (context, index) {
-        final result = _results[index] as Map<String, dynamic>;
+        final result = filteredResults[index] as Map<String, dynamic>;
         final title = result['title'] as String? ?? 'Unknown';
         final size = result['sizeText'] as String? ?? '';
         final seeders = result['seeders'] as int? ?? 0;
@@ -251,7 +322,7 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
               ],
             ],
           ),
-          trailing: _downloadingIndex == index
+          trailing: _downloadingIndex == _results.indexOf(result)
               ? const SizedBox(
                   width: 24,
                   height: 24,
@@ -259,7 +330,7 @@ class _TorrentSearchDialogState extends State<TorrentSearchDialog> {
                 )
               : IconButton(
                   icon: const Icon(Icons.download),
-                  onPressed: () => _download(index),
+                  onPressed: () => _download(result),
                 ),
         );
       },
