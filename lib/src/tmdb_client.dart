@@ -27,17 +27,20 @@ class TmdbClient {
   }
 
   Future<List<MediaItem>> discoverMovies({
-    required List<int> providerIds,
+    List<int>? providerIds,
     String? releaseDateGte,
     String? releaseDateLte,
     int page = 1,
   }) async {
     final params = <String, String>{
-      'watch_region': region,
-      'with_watch_providers': providerIds.join('|'),
       'sort_by': 'release_date.desc',
       'page': page.toString(),
     };
+    // Only filter by provider if specified
+    if (providerIds != null && providerIds.isNotEmpty) {
+      params['watch_region'] = region;
+      params['with_watch_providers'] = providerIds.join('|');
+    }
     if (releaseDateGte != null) params['release_date.gte'] = releaseDateGte;
     if (releaseDateLte != null) params['release_date.lte'] = releaseDateLte;
 
@@ -49,17 +52,20 @@ class TmdbClient {
   }
 
   Future<List<MediaItem>> discoverTv({
-    required List<int> providerIds,
+    List<int>? providerIds,
     String? airDateGte,
     String? airDateLte,
     int page = 1,
   }) async {
     final params = <String, String>{
-      'watch_region': region,
-      'with_watch_providers': providerIds.join('|'),
       'sort_by': 'first_air_date.desc',
       'page': page.toString(),
     };
+    // Only filter by provider if specified
+    if (providerIds != null && providerIds.isNotEmpty) {
+      params['watch_region'] = region;
+      params['with_watch_providers'] = providerIds.join('|');
+    }
     if (airDateGte != null) params['first_air_date.gte'] = airDateGte;
     if (airDateLte != null) params['first_air_date.lte'] = airDateLte;
 

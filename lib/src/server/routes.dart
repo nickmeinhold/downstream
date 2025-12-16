@@ -144,11 +144,14 @@ class ApiRoutes {
 
   Future<Response> _getNew(Request request, User user) async {
     final params = request.url.queryParameters;
-    final providerKeys = params['providers']?.split(',') ?? [];
+    final providerKeys = params['providers']?.split(',').where((k) => k.isNotEmpty).toList() ?? [];
     final type = params['type']; // 'movie', 'tv', or null for both
     final days = int.tryParse(params['days'] ?? '30') ?? 30;
 
-    final providerIds = Providers.parseProviderKeys(providerKeys);
+    // Only filter by provider if explicitly specified - otherwise get all releases
+    final providerIds = providerKeys.isNotEmpty
+        ? Providers.parseProviderKeys(providerKeys)
+        : null;
     final now = DateTime.now();
     final startDate = now.subtract(Duration(days: days));
     final startStr = _formatDate(startDate);
