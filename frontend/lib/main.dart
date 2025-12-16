@@ -5,12 +5,13 @@ import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
-void main() {
-  runApp(const PlexApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const UpstreamApp());
 }
 
-class PlexApp extends StatelessWidget {
-  const PlexApp({super.key});
+class UpstreamApp extends StatelessWidget {
+  const UpstreamApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +23,7 @@ class PlexApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Plex',
+        title: 'Upstream',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

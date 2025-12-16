@@ -101,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plex'),
+        title: const Text('Upstream'),
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
