@@ -10,7 +10,7 @@ class WatchHistory {
 
   WatchHistory() {
     final home = Platform.environment['HOME'] ?? '.';
-    _filePath = path.join(home, '.plex_watched.json');
+    _filePath = path.join(home, '.upstream_watched.json');
   }
 
   Future<void> load() async {

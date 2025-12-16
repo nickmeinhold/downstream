@@ -47,8 +47,8 @@ class UnwatchCommand extends Command<void> {
   @override
   Future<void> run() async {
     if (argResults!.rest.isEmpty) {
-      print('Usage: plex unwatch <key>');
-      print('Use "plex watched" to see watched items and their keys.');
+      print('Usage: upstream unwatch <key>');
+      print('Use "upstream watched" to see watched items and their keys.');
       return;
     }
 

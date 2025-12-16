@@ -22,7 +22,7 @@ class SearchCommand extends Command<void> {
   @override
   Future<void> run() async {
     if (argResults!.rest.isEmpty) {
-      print('Usage: plex search <query>');
+      print('Usage: upstream search <query>');
       return;
     }
 

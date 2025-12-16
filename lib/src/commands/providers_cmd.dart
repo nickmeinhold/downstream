@@ -23,6 +23,6 @@ class ProvidersCommand extends Command<void> {
     print('Default providers: ${Providers.defaultProviders.map((p) => p.name).join(", ")}');
     print('');
     print('Use -p flag to filter by provider:');
-    print('  plex new -p netflix -p disney');
+    print('  upstream new -p netflix -p disney');
   }
 }
