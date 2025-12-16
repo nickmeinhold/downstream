@@ -1,0 +1,54 @@
+# Environment
+.env
+.env.*
+*.env
+
+# Dart
+**/.dart_tool/
+**/.packages
+**/build/
+**/pubspec.lock
+**/doc/api/
+.pub-cache/
+.pub/
+
+# Dart2JS
+*.js_
+*.js.deps
+*.js.map
+
+# Flutter
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.metadata
+
+# Coverage
+coverage/
+
+# IntelliJ/Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Miscellaneous
+.DS_Store
+.history
+.buildlog/
+*.swp
+*~
+*.log
+logs/
+
+# Generated code
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Symbolication/Obfuscation (Flutter builds)
+app.*.symbols
+app.*.map.json

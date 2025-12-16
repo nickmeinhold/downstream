@@ -1,0 +1,152 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'auth_service.dart';
+
+class ApiService {
+  final AuthService _auth;
+
+  ApiService(this._auth);
+
+  String get _baseUrl => _auth.baseUrl;
+
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (_auth.token != null) 'Authorization': 'Bearer ${_auth.token}',
+      };
+
+  Future<Map<String, dynamic>> _get(String path,
+      [Map<String, String>? params]) async {
+    var uri = Uri.parse('$_baseUrl$path');
+    if (params != null) {
+      uri = uri.replace(queryParameters: params);
+    }
+
+    final response = await http.get(uri, headers: _headers);
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> _post(String path,
+      [Map<String, dynamic>? body]) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl$path'),
+      headers: _headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> _delete(String path,
+      [Map<String, String>? params]) async {
+    var uri = Uri.parse('$_baseUrl$path');
+    if (params != null) {
+      uri = uri.replace(queryParameters: params);
+    }
+
+    final response = await http.delete(uri, headers: _headers);
+    return _handleResponse(response);
+  }
+
+  Map<String, dynamic> _handleResponse(http.Response response) {
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw ApiException(data['error'] ?? 'Request failed', response.statusCode);
+    }
+    return data;
+  }
+
+  // Content endpoints
+  Future<List<dynamic>> getNewReleases({
+    List<String>? providers,
+    String? type,
+    int days = 30,
+  }) async {
+    final params = <String, String>{
+      'days': days.toString(),
+      if (providers != null && providers.isNotEmpty)
+        'providers': providers.join(','),
+      if (type != null) 'type': type,
+    };
+    final data = await _get('/api/new', params);
+    return data['items'] as List<dynamic>;
+  }
+
+  Future<List<dynamic>> getTrending({
+    String window = 'week',
+    String? type,
+  }) async {
+    final params = <String, String>{
+      'window': window,
+      if (type != null) 'type': type,
+    };
+    final data = await _get('/api/trending', params);
+    return data['items'] as List<dynamic>;
+  }
+
+  Future<List<dynamic>> search(String query) async {
+    final data = await _get('/api/search', {'q': query});
+    return data['items'] as List<dynamic>;
+  }
+
+  Future<List<dynamic>> whereToWatch(String query) async {
+    final data = await _get('/api/where', {'q': query});
+    return data['items'] as List<dynamic>;
+  }
+
+  Future<List<dynamic>> getProviders() async {
+    final data = await _get('/api/providers');
+    return data['providers'] as List<dynamic>;
+  }
+
+  // Ratings (IMDB, Rotten Tomatoes, Metacritic)
+  Future<Map<String, dynamic>?> getRatings(String mediaType, int id) async {
+    try {
+      final data = await _get('/api/ratings/$mediaType/$id');
+      return data;
+    } catch (e) {
+      // Ratings are optional - don't fail if unavailable
+      return null;
+    }
+  }
+
+  // Watch history
+  Future<void> markWatched(String mediaType, int id) async {
+    await _post('/api/watched/$mediaType/$id');
+  }
+
+  Future<void> unmarkWatched(String mediaType, int id) async {
+    await _delete('/api/watched/$mediaType/$id');
+  }
+
+  // Torrent endpoints
+  Future<List<dynamic>> searchTorrents(String query, {String? category}) async {
+    final params = <String, String>{
+      'q': query,
+      if (category != null) 'category': category,
+    };
+    final data = await _get('/api/torrents/search', params);
+    return data['results'] as List<dynamic>;
+  }
+
+  Future<Map<String, dynamic>> downloadTorrent(String url) async {
+    return await _post('/api/torrents/download', {'url': url});
+  }
+
+  Future<List<dynamic>> getActiveTorrents() async {
+    final data = await _get('/api/torrents/active');
+    return data['torrents'] as List<dynamic>;
+  }
+
+  Future<void> removeTorrent(int id, {bool deleteData = false}) async {
+    await _delete('/api/torrents/$id', {'deleteData': deleteData.toString()});
+  }
+}
+
+class ApiException implements Exception {
+  final String message;
+  final int statusCode;
+
+  ApiException(this.message, this.statusCode);
+
+  @override
+  String toString() => message;
+}
