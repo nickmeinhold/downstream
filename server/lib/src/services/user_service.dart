@@ -9,7 +9,7 @@ class UserService {
 
   UserService() {
     final home = Platform.environment['HOME'] ?? '.';
-    _filePath = path.join(home, '.upstream_users.json');
+    _filePath = path.join(home, '.downstream_users.json');
   }
 
   Future<void> load() async {

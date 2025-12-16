@@ -1,6 +1,6 @@
 {
-    "name": "upstream_frontend",
-    "short_name": "upstream_frontend",
+    "name": "downstream_frontend",
+    "short_name": "downstream_frontend",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

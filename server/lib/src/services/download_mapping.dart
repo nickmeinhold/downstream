@@ -12,7 +12,7 @@ class DownloadMapping {
 
   static String _defaultPath() {
     final home = Platform.environment['HOME'] ?? '.';
-    return '$home/.upstream/download_mappings.json';
+    return '$home/.downstream/download_mappings.json';
   }
 
   Future<void> load() async {

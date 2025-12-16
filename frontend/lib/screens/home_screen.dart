@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Upstream'),
+        title: const Text('Downstream'),
         actions: [
           IconButton(
             icon: const Icon(Icons.download),

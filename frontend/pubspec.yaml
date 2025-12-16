@@ -1,4 +1,4 @@
-name: upstream_frontend
+name: downstream_frontend
 description: "A new Flutter project."
 publish_to: 'none'
 

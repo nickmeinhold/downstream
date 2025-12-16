@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:upstream/src/server/server.dart';
+import 'package:downstream/src/server/server.dart';
 
 void main(List<String> arguments) async {
   final port = int.tryParse(Platform.environment['PORT'] ?? '8080') ?? 8080;
@@ -12,7 +12,7 @@ void main(List<String> arguments) async {
     staticPath = '../frontend/build/web';
   }
 
-  final server = UpstreamServer(
+  final server = DownstreamServer(
     port: port,
     staticPath: staticPath,
   );

@@ -1,4 +1,4 @@
-# Upstream
+# Downstream
 
 **What's new on streaming? Download it with one click.**
 
@@ -6,7 +6,7 @@ A self-hosted web app for discovering new content across Netflix, Disney+, Apple
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  UPSTREAM                                     nick ▼   ⬇ 2     │
+│  DOWNSTREAM                                   nick ▼   ⬇ 2     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
@@ -172,9 +172,9 @@ DELETE /api/torrents/{id}?deleteData=true
 All data is stored locally:
 
 ```text
-~/.upstream_users.json              # Accounts (passwords are hashed)
-~/.upstream_watched.json            # Per-user watch history
-~/.upstream/download_mappings.json  # Torrent → TMDB ID mappings
+~/.downstream_users.json              # Accounts (passwords are hashed)
+~/.downstream_watched.json            # Per-user watch history
+~/.downstream/download_mappings.json  # Torrent → TMDB ID mappings
 ```
 
 ---
@@ -182,7 +182,7 @@ All data is stored locally:
 ## Project Structure
 
 ```text
-upstream/
+downstream/
 ├── server/           # Dart backend
 │   ├── bin/server.dart
 │   ├── lib/src/

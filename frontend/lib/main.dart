@@ -7,11 +7,11 @@ import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const UpstreamApp());
+  runApp(const DownstreamApp());
 }
 
-class UpstreamApp extends StatelessWidget {
-  const UpstreamApp({super.key});
+class DownstreamApp extends StatelessWidget {
+  const DownstreamApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,7 @@ class UpstreamApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Upstream',
+        title: 'Downstream',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

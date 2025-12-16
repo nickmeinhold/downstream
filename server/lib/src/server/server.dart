@@ -14,7 +14,7 @@ import '../watch_history.dart';
 import '../tmdb_client.dart';
 import 'routes.dart';
 
-class UpstreamServer {
+class DownstreamServer {
   final int port;
   final String? staticPath;
 
@@ -27,7 +27,7 @@ class UpstreamServer {
   late final DownloadMapping downloadMapping;
   late final String jwtSecret;
 
-  UpstreamServer({
+  DownstreamServer({
     this.port = 8080,
     this.staticPath,
   });
@@ -39,7 +39,7 @@ class UpstreamServer {
       throw Exception('TMDB_API_KEY environment variable required');
     }
 
-    jwtSecret = Platform.environment['JWT_SECRET'] ?? 'upstream-default-secret-change-me';
+    jwtSecret = Platform.environment['JWT_SECRET'] ?? 'downstream-default-secret-change-me';
     final transmissionUrl = Platform.environment['TRANSMISSION_URL'] ?? 'http://localhost:9091';
     final jackettUrl = Platform.environment['JACKETT_URL'];
     final jackettKey = Platform.environment['JACKETT_API_KEY'];
@@ -125,7 +125,7 @@ class UpstreamServer {
 
     // Start server
     final server = await io.serve(handler, InternetAddress.anyIPv4, port);
-    print('Upstream server running at http://${server.address.host}:${server.port}');
+    print('Downstream server running at http://${server.address.host}:${server.port}');
 
     // Test connections
     await _testConnections();
