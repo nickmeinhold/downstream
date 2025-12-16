@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
@@ -22,17 +23,60 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   String? _error;
   final _searchController = TextEditingController();
+  Timer? _progressTimer;
 
   @override
   void initState() {
     super.initState();
     _loadContent();
+    _startProgressPolling();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _progressTimer?.cancel();
     super.dispose();
+  }
+
+  void _startProgressPolling() {
+    // Poll every second to pick up new downloads and update progress
+    _progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_isLoading) {
+        _refreshProgress();
+      }
+    });
+  }
+
+  Future<void> _refreshProgress() async {
+    // Silent refresh - don't show loading indicator
+    try {
+      final api = context.read<ApiService>();
+      List<dynamic> items;
+
+      switch (_selectedIndex) {
+        case 0:
+          items = await api.getNewReleases(
+            type: _contentType == 'all' ? null : _contentType,
+            days: _days,
+          );
+          break;
+        case 1:
+          items = await api.getTrending(
+            window: _timeWindow,
+            type: _contentType == 'all' ? null : _contentType,
+          );
+          break;
+        default:
+          return; // Don't refresh search results
+      }
+
+      if (mounted) {
+        setState(() => _items = items);
+      }
+    } catch (_) {
+      // Silent fail for background refresh
+    }
   }
 
   Future<void> _loadContent() async {
@@ -88,10 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showMediaDetail(Map<String, dynamic> item) {
     showDialog(
       context: context,
-      builder: (context) => MediaDetailDialog(
-        item: item,
-        onWatchedChanged: () => _loadContent(),
-      ),
+      builder: (context) =>
+          MediaDetailDialog(item: item, onWatchedChanged: () => _loadContent()),
     );
   }
 
@@ -122,10 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Text('Signed in as ${auth.username}'),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Text('Sign out'),
-              ),
+              const PopupMenuItem(value: 'logout', child: Text('Sign out')),
             ],
           ),
         ],
@@ -162,9 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 _buildFilters(),
-                Expanded(
-                  child: _buildContent(),
-                ),
+                Expanded(child: _buildContent()),
               ],
             ),
           ),
@@ -200,10 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _loadContent,
-              child: const Text('Search'),
-            ),
+            FilledButton(onPressed: _loadContent, child: const Text('Search')),
           ] else ...[
             SegmentedButton<String>(
               segments: const [
@@ -279,10 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             Text(_error!),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loadContent,
-              child: const Text('Retry'),
-            ),
+            FilledButton(onPressed: _loadContent, child: const Text('Retry')),
           ],
         ),
       );
@@ -310,10 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return MediaGrid(
-      items: _items,
-      onTap: _showMediaDetail,
-    );
+    return MediaGrid(items: _items, onTap: _showMediaDetail);
   }
 
   void _showDownloadsPanel(BuildContext context) {
@@ -325,9 +353,8 @@ class _HomeScreenState extends State<HomeScreen> {
         minChildSize: 0.3,
         maxChildSize: 0.9,
         expand: false,
-        builder: (context, scrollController) => DownloadsPanel(
-          scrollController: scrollController,
-        ),
+        builder: (context, scrollController) =>
+            DownloadsPanel(scrollController: scrollController),
       ),
     );
   }
