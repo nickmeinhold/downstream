@@ -52,6 +52,8 @@ class MediaCard extends StatelessWidget {
     final mediaType = item['mediaType'] as String? ?? 'movie';
     final watched = item['watched'] as bool? ?? false;
     final percentDone = (item['percentDone'] as num?)?.toDouble();
+    final genres = (item['genres'] as List<dynamic>?)?.cast<String>() ?? [];
+    final genreText = genres.take(2).join(' · ');
     final isDownloading = percentDone != null && percentDone < 1.0;
     final isDownloaded = percentDone != null && percentDone >= 1.0;
 
@@ -137,6 +139,18 @@ class MediaCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (genreText.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        genreText,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),

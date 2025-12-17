@@ -19,22 +19,37 @@ class TransmissionClient {
       if (_sessionId != null) 'X-Transmission-Session-Id': _sessionId!,
     };
 
-    var response = await http.post(
-      Uri.parse('$baseUrl/transmission/rpc'),
-      headers: headers,
-      body: body,
-    );
+    http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/transmission/rpc'),
+        headers: headers,
+        body: body,
+      );
+    } catch (e) {
+      throw TransmissionException(
+        'Connection failed',
+        'Could not connect to Transmission at $baseUrl',
+      );
+    }
 
     // Handle session ID requirement (409 Conflict)
     if (response.statusCode == 409) {
       _sessionId = response.headers['x-transmission-session-id'];
       if (_sessionId != null) {
         headers['X-Transmission-Session-Id'] = _sessionId!;
-        response = await http.post(
-          Uri.parse('$baseUrl/transmission/rpc'),
-          headers: headers,
-          body: body,
-        );
+        try {
+          response = await http.post(
+            Uri.parse('$baseUrl/transmission/rpc'),
+            headers: headers,
+            body: body,
+          );
+        } catch (e) {
+          throw TransmissionException(
+            'Connection failed',
+            'Could not connect to Transmission at $baseUrl',
+          );
+        }
       }
     }
 

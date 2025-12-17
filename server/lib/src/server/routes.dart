@@ -394,8 +394,9 @@ class ApiRoutes {
       return _jsonOk({
         'torrents': torrents.map((t) => t.toJson()).toList(),
       });
-    } on TransmissionException catch (e) {
-      return _jsonError(500, e.message);
+    } on TransmissionException {
+      // Return empty list if Transmission isn't available (it's optional)
+      return _jsonOk({'torrents': []});
     }
   }
 
