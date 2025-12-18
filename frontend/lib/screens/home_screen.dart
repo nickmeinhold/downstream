@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/media_grid.dart';
-import '../widgets/downloads_panel.dart';
 import '../widgets/media_detail_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -26,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   String? _error;
   final _searchController = TextEditingController();
-  Timer? _progressTimer;
 
   // Common genres (shared between movies and TV)
   static const _genres = <int, String>{
@@ -50,61 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadContent();
-    _startProgressPolling();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _progressTimer?.cancel();
     super.dispose();
-  }
-
-  void _startProgressPolling() {
-    // Poll every 2 seconds for download progress only
-    _progressTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!_isLoading && _items.isNotEmpty) {
-        _refreshDownloadProgress();
-      }
-    });
-  }
-
-  Future<void> _refreshDownloadProgress() async {
-    // Only fetch active torrents, don't re-fetch content from TMDB
-    try {
-      final api = context.read<ApiService>();
-      final torrents = await api.getActiveTorrents();
-
-      if (!mounted || torrents.isEmpty) return;
-
-      // Build lookup by name for fuzzy matching
-      bool hasChanges = false;
-      for (final item in _items) {
-        final title = (item['title'] as String? ?? '').toLowerCase();
-        final year = item['year'] as String? ?? '';
-
-        for (final torrent in torrents) {
-          final torrentName = (torrent['name'] as String? ?? '').toLowerCase();
-          // Simple fuzzy match: torrent name contains title
-          if (torrentName.contains(title) &&
-              (year.isEmpty || torrentName.contains(year))) {
-            final newProgress = torrent['percentDone'] as double?;
-            if (item['percentDone'] != newProgress) {
-              item['percentDone'] = newProgress;
-              item['downloadStatus'] = torrent['statusText'];
-              hasChanges = true;
-            }
-            break;
-          }
-        }
-      }
-
-      if (hasChanges && mounted) {
-        setState(() {});
-      }
-    } catch (_) {
-      // Silent fail for background refresh
-    }
   }
 
   Future<void> _loadContent() async {
@@ -176,11 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Downstream'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Downloads',
-            onPressed: () => _showDownloadsPanel(context),
-          ),
           PopupMenuButton<String>(
             icon: auth.photoUrl != null
                 ? CircleAvatar(
@@ -453,21 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return MediaGrid(items: _items, onTap: _showMediaDetail);
-  }
-
-  void _showDownloadsPanel(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) =>
-            DownloadsPanel(scrollController: scrollController),
-      ),
-    );
   }
 }
 

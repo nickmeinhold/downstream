@@ -1,5 +1,5 @@
 name: downstream
-description: Streaming content discovery web app with torrent integration.
+description: Streaming content discovery web app with content requests.
 version: 2.0.0
 
 environment:

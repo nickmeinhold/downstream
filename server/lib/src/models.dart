@@ -141,3 +141,41 @@ class StreamingProvider {
     this.logoPath,
   });
 }
+
+class MediaRequest {
+  final String id;
+  final int tmdbId;
+  final String mediaType;
+  final String title;
+  final String? posterPath;
+  final String requestedBy;
+  final DateTime requestedAt;
+  final String status; // 'pending', 'downloading', 'available'
+
+  MediaRequest({
+    required this.id,
+    required this.tmdbId,
+    required this.mediaType,
+    required this.title,
+    this.posterPath,
+    required this.requestedBy,
+    required this.requestedAt,
+    required this.status,
+  });
+
+  String get uniqueKey => '${mediaType}_$tmdbId';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'tmdbId': tmdbId,
+        'mediaType': mediaType,
+        'title': title,
+        'posterPath': posterPath,
+        'posterUrl': posterPath != null
+            ? 'https://image.tmdb.org/t/p/w500$posterPath'
+            : null,
+        'requestedBy': requestedBy,
+        'requestedAt': requestedAt.toIso8601String(),
+        'status': status,
+      };
+}

@@ -2,32 +2,23 @@ import 'dart:convert';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-import '../services/transmission_client.dart';
-import '../services/jackett_client.dart';
 import '../services/omdb_client.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/firestore_watch_history.dart';
-import '../services/download_mapping.dart';
 import '../tmdb_client.dart';
 import '../providers.dart';
 
 class ApiRoutes {
   final TmdbClient tmdb;
-  final TransmissionClient transmission;
-  final JackettClient? jackett;
   final OmdbClient? omdb;
   final FirebaseAuthService firebaseAuth;
   final FirestoreWatchHistory watchHistory;
-  final DownloadMapping downloadMapping;
 
   ApiRoutes({
     required this.tmdb,
-    required this.transmission,
-    this.jackett,
     this.omdb,
     required this.firebaseAuth,
     required this.watchHistory,
-    required this.downloadMapping,
   });
 
   Router get router {
@@ -50,11 +41,10 @@ class ApiRoutes {
     router.post('/watched/<mediaType>/<id>', _withAuth(_markWatched));
     router.delete('/watched/<mediaType>/<id>', _withAuth(_unmarkWatched));
 
-    // Torrent routes
-    router.get('/torrents/search', _withAuth(_searchTorrents));
-    router.post('/torrents/download', _withAuth(_downloadTorrent));
-    router.get('/torrents/active', _withAuth(_getActiveTorrents));
-    router.delete('/torrents/<id>', _withAuth(_removeTorrent));
+    // Request routes
+    router.get('/requests', _withAuth(_getRequests));
+    router.post('/requests/<mediaType>/<id>', _withAuth(_createRequest));
+    router.delete('/requests/<mediaType>/<id>', _withAuth(_deleteRequest));
 
     return router;
   }
@@ -160,9 +150,6 @@ class ApiRoutes {
       return bDate.compareTo(aDate);
     });
 
-    // Add download progress for active torrents
-    await _addDownloadProgress(items);
-
     return _jsonOk({'items': items});
   }
 
@@ -196,9 +183,6 @@ class ApiRoutes {
       }
     }
 
-    // Add download progress for active torrents
-    await _addDownloadProgress(items);
-
     return _jsonOk({'items': items});
   }
 
@@ -218,9 +202,6 @@ class ApiRoutes {
               'watched': watchedKeys.contains(r.uniqueKey),
             })
         .toList();
-
-    // Add download progress for active torrents
-    await _addDownloadProgress(items);
 
     return _jsonOk({'items': items});
   }
@@ -355,91 +336,61 @@ class ApiRoutes {
     return _jsonOk({'success': true, 'key': '${mediaType}_$id'});
   }
 
-  // === Torrent Routes ===
+  // === Request Routes ===
 
-  Future<Response> _searchTorrents(Request request, FirebaseUser user) async {
-    if (jackett == null) {
-      return _jsonError(503, 'Jackett not configured');
-    }
-
-    final query = request.url.queryParameters['q'];
-    // Category parameter no longer used - many indexers don't categorize
-    // properly, which causes relevant results to be missed
-
-    if (query == null || query.isEmpty) {
-      return _jsonError(400, 'Query parameter q required');
-    }
-
-    // Search without category restriction to get maximum results
-    final results = await jackett!.search(query);
-
-    // Sort by seeders descending
-    results.sort((a, b) => b.seeders.compareTo(a.seeders));
-
-    return _jsonOk({
-      'results': results.take(100).map((r) => r.toJson()).toList(),
-    });
+  Future<Response> _getRequests(Request request, FirebaseUser user) async {
+    final requests = await watchHistory.getRequests();
+    return _jsonOk({'requests': requests});
   }
 
-  Future<Response> _downloadTorrent(Request request, FirebaseUser user) async {
-    final body = await _parseJson(request);
-    if (body == null) return _jsonError(400, 'Invalid JSON');
-
-    final magnetOrUrl = body['url'] as String?;
-    if (magnetOrUrl == null || magnetOrUrl.isEmpty) {
-      return _jsonError(400, 'URL or magnet link required');
-    }
-
-    // Optional TMDB reference for tracking
-    final tmdbId = body['tmdbId'] as int?;
-    final mediaType = body['mediaType'] as String?;
-
-    try {
-      final torrent = await transmission.addTorrent(magnetOrUrl);
-
-      // Store mapping if TMDB info provided
-      if (tmdbId != null && mediaType != null) {
-        await downloadMapping.addMapping(torrent.hashString, tmdbId, mediaType);
-        print('Mapped torrent ${torrent.hashString} -> $mediaType/$tmdbId');
-      }
-
-      return _jsonOk({'torrent': torrent.toJson()});
-    } on TransmissionException catch (e) {
-      return _jsonError(500, e.message);
-    }
-  }
-
-  Future<Response> _getActiveTorrents(Request request, FirebaseUser user) async {
-    try {
-      final torrents = await transmission.getTorrents();
-      return _jsonOk({
-        'torrents': torrents.map((t) => t.toJson()).toList(),
-      });
-    } on TransmissionException {
-      // Return empty list if Transmission isn't available (it's optional)
-      return _jsonOk({'torrents': []});
-    }
-  }
-
-  Future<Response> _removeTorrent(Request request, FirebaseUser user) async {
+  Future<Response> _createRequest(Request request, FirebaseUser user) async {
+    final mediaType = request.params['mediaType'];
     final idStr = request.params['id'];
-    if (idStr == null) {
-      return _jsonError(400, 'Torrent ID required');
+    if (mediaType == null || idStr == null) {
+      return _jsonError(400, 'Invalid parameters');
     }
 
     final id = int.tryParse(idStr);
     if (id == null) {
-      return _jsonError(400, 'Invalid torrent ID');
+      return _jsonError(400, 'Invalid ID');
     }
 
-    final deleteData = request.url.queryParameters['deleteData'] == 'true';
+    // Get title and poster from request body
+    final body = await _parseJson(request);
+    final title = body?['title'] as String? ?? 'Unknown';
+    final posterPath = body?['posterPath'] as String?;
 
-    try {
-      await transmission.removeTorrent(id, deleteLocalData: deleteData);
-      return _jsonOk({'success': true});
-    } on TransmissionException catch (e) {
-      return _jsonError(500, e.message);
+    // Check if already requested
+    final alreadyRequested = await watchHistory.isRequested(mediaType, id);
+    if (alreadyRequested) {
+      return _jsonError(409, 'Already requested');
     }
+
+    await watchHistory.createRequest(
+      userId: user.uid,
+      mediaType: mediaType,
+      tmdbId: id,
+      title: title,
+      posterPath: posterPath,
+    );
+
+    return _jsonOk({'success': true, 'key': '${mediaType}_$id'});
+  }
+
+  Future<Response> _deleteRequest(Request request, FirebaseUser user) async {
+    final mediaType = request.params['mediaType'];
+    final idStr = request.params['id'];
+    if (mediaType == null || idStr == null) {
+      return _jsonError(400, 'Invalid parameters');
+    }
+
+    final id = int.tryParse(idStr);
+    if (id == null) {
+      return _jsonError(400, 'Invalid ID');
+    }
+
+    await watchHistory.deleteRequest(mediaType, id);
+    return _jsonOk({'success': true});
   }
 
   // === Helpers ===
@@ -473,62 +424,5 @@ class ApiRoutes {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
-  }
-
-  /// Match active torrents with media items and add progress info
-  Future<void> _addDownloadProgress(List<Map<String, dynamic>> items) async {
-    try {
-      final torrents = await transmission.getTorrents();
-      if (torrents.isEmpty) return;
-
-      // Build hash -> torrent lookup for exact matching
-      final torrentByHash = {for (final t in torrents) t.hashString: t};
-
-      for (final item in items) {
-        final tmdbId = item['id'] as int?;
-        final mediaType = item['mediaType'] as String?;
-        final title = (item['title'] as String? ?? '');
-
-        // First try exact match via stored mapping
-        if (tmdbId != null && mediaType != null) {
-          final hash = downloadMapping.getTorrentHash(tmdbId, mediaType);
-          if (hash != null && torrentByHash.containsKey(hash)) {
-            final torrent = torrentByHash[hash]!;
-            item['percentDone'] = torrent.percentDone;
-            item['downloadStatus'] = torrent.statusText;
-            continue;
-          }
-        }
-
-        // Fall back to fuzzy title matching
-        final year = item['year'] as String? ?? '';
-        final normalizedTitle = _normalizeForMatch(title);
-
-        for (final torrent in torrents) {
-          final normalizedTorrent = _normalizeForMatch(torrent.name);
-          final titleMatch = normalizedTorrent.contains(normalizedTitle);
-          final yearMatch = year.isEmpty || normalizedTorrent.contains(year);
-
-          if (titleMatch && yearMatch) {
-            item['percentDone'] = torrent.percentDone;
-            item['downloadStatus'] = torrent.statusText;
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      // Transmission not available, skip progress info
-      print('Transmission error: $e');
-    }
-  }
-
-  /// Normalize a string for fuzzy matching (lowercase, remove punctuation, collapse spaces)
-  String _normalizeForMatch(String input) {
-    return input
-        .toLowerCase()
-        .replaceAll(RegExp(r'[._\-:]+'), ' ')  // Replace dots, underscores, dashes, colons with spaces
-        .replaceAll(RegExp(r'[^\w\s]'), '')     // Remove other punctuation
-        .replaceAll(RegExp(r'\s+'), ' ')        // Collapse multiple spaces
-        .trim();
   }
 }

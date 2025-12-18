@@ -1,12 +1,14 @@
 # Downstream
 
-**What's new on streaming? Download it with one click.**
+**What's new on streaming?**
 
-A self-hosted web app for discovering new content across Netflix, Disney+, Apple TV+, and more. See what dropped this week, check the ratings, and grab it via torrent — all in one place.
+A self-hosted web app for discovering new content across Netflix, Disney+, Apple TV+, and more. See what dropped this week, check the ratings, track what you've watched, and request content for download.
+
+Pairs with [downstream-cli](https://github.com/nickmeinhold/downstream-cli) for automated downloading.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│  DOWNSTREAM                                   nick ▼   ⬇ 2     │
+│  DOWNSTREAM                                   nick ▼            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
@@ -25,30 +27,108 @@ A self-hosted web app for discovering new content across Netflix, Disney+, Apple
 
 - **Browse new releases** from Netflix, Disney+, Apple TV+, HBO Max, Prime Video, Paramount+, Hulu, Peacock
 - **Aggregate ratings** — IMDB, Rotten Tomatoes, Metacritic all in one view
-- **Multi-user** — everyone tracks their own watch history
-- **One-click downloads** — search torrents via Jackett, download via Transmission
-- **Real-time progress** — watch your downloads complete
+- **Multi-user** — everyone tracks their own watch history via Firebase Auth
+- **Where to watch** — see which streaming services have a title
+- **Request content** — request movies/shows for download (processed by downstream-cli)
 
 ## Architecture
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│                      Flutter Web Frontend                         │
-│         Browse • Search • Mark Watched • Download                 │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │ REST API
-┌────────────────────────────▼─────────────────────────────────────┐
-│                       Dart Backend (shelf)                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
-│  │   Auth   │ │   TMDB   │ │  Jackett │ │    Transmission      │ │
-│  │  (JWT)   │ │  Client  │ │  Client  │ │       Client         │ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────────┘ │
-└───────┬──────────────┬──────────────┬──────────────┬─────────────┘
-        │              │              │              │
-        ▼              ▼              ▼              ▼
-   [Users JSON]   [TMDB API]    [Jackett]    [Transmission]
-                  [OMDB API]    :9117           :9091
+```mermaid
+flowchart TB
+    subgraph Frontend["Flutter Web Frontend"]
+        UI["Browse • Search • Mark Watched • Request"]
+    end
+
+    subgraph Backend["Dart Backend (shelf)"]
+        Auth["Firebase Auth"]
+        TMDB["TMDB Client"]
+        OMDB["OMDB Client"]
+        FS["Firestore Client"]
+    end
+
+    subgraph External["External Services"]
+        TMDB_API["TMDB API"]
+        OMDB_API["OMDB API"]
+        Firebase["Firebase / Firestore"]
+    end
+
+    UI -->|REST API| Backend
+    Auth --> Firebase
+    TMDB --> TMDB_API
+    OMDB --> OMDB_API
+    FS --> Firebase
 ```
+
+## Sequence Diagram
+
+The following diagram shows the flow when a user opens the web app, authenticates, browses content, and interacts with various APIs:
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant F as Flutter Frontend
+    participant S as Dart Backend
+    participant FB as Firebase
+    participant T as TMDB API
+    participant O as OMDB API
+
+    Note over B,O: App Initialization & Authentication
+
+    B->>F: 1. Open app
+    F->>B: 2. Load WASM bundle
+    F->>FB: 3. Initialize Firebase Auth
+    FB-->>F: 4. Check existing session
+    F->>B: 5. Show login screen
+
+    B->>F: 6. Click "Sign in with Google"
+    F->>FB: 7. Google OAuth popup
+    B->>FB: 8. Complete OAuth flow
+    FB-->>F: 9. Return JWT token
+    F->>B: 10. Show home screen
+
+    Note over B,O: Fetching New Releases
+
+    F->>S: 11. GET /api/new (Bearer token)
+    S->>FB: 12. Verify JWT token
+    FB-->>S: Token valid, return user ID
+    S->>FB: 13. Get user's watched items (Firestore)
+    FB-->>S: Return watched list
+    S->>T: 14. Discover movies & TV shows
+    T-->>S: Return media results
+    S-->>F: 15. Return media list with watched status
+    F->>B: 16. Render media grid
+
+    Note over B,O: Viewing Media Details
+
+    B->>F: 17. Click media card
+    F->>S: 18. GET /api/ratings/{type}/{id}
+    S->>T: 19. Get IMDB ID (external_ids)
+    T-->>S: Return IMDB ID
+    S->>O: 20. Fetch ratings by IMDB ID
+    O-->>S: Return IMDB/RT/Metacritic scores
+    S->>T: 21. Get streaming providers
+    T-->>S: Return provider list
+    S-->>F: 22. Return ratings + providers
+    F->>B: 23. Show detail dialog
+
+    Note over B,O: Marking Watch History
+
+    B->>F: 24. Click "Mark as Watched"
+    F->>S: 25. POST /api/watched/{type}/{id}
+    S->>FB: 26. Write to Firestore
+    FB-->>S: Document created
+    S-->>F: 27. 200 OK
+    F->>B: 28. Update UI with watched badge
+```
+
+**Key flows:**
+
+| Step | Description |
+|------|-------------|
+| 1-10 | App loads, user authenticates via Google OAuth, receives JWT token |
+| 11-16 | Home screen fetches new releases from TMDB, marks user's watched items |
+| 17-23 | User clicks card, backend fetches ratings from OMDB + providers from TMDB |
+| 24-28 | User marks item watched, stored in Firestore under their user ID |
 
 ## Quick Start
 
@@ -58,44 +138,24 @@ A self-hosted web app for discovering new content across Netflix, Disney+, Apple
 |---------|---------|------|
 | **TMDB** | Content data & posters | [Get free key](https://www.themoviedb.org/settings/api) |
 | **OMDB** | IMDB/RT/Metacritic ratings | [Get free key](https://www.omdbapi.com/apikey.aspx) |
+| **Firebase** | Auth & Firestore | [Firebase Console](https://console.firebase.google.com) |
 
-### 2. Install Dependencies
-
-**macOS:**
-
-```bash
-brew install transmission jackett
-brew services start transmission
-brew services start jackett
-```
-
-**Docker:**
-
-```bash
-docker run -d --name transmission -p 9091:9091 -v ~/Downloads:/downloads linuxserver/transmission
-docker run -d --name jackett -p 9117:9117 linuxserver/jackett
-```
-
-Then configure your torrent indexers at <http://localhost:9117>
-
-### 3. Configure Environment
+### 2. Configure Environment
 
 ```bash
 # Required
 export TMDB_API_KEY="your-tmdb-key"
+export FIREBASE_PROJECT_ID="your-project-id"
+export FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
 
 # Recommended
-export OMDB_API_KEY="your-omdb-key"              # For ratings
-export JACKETT_URL="http://localhost:9117"
-export JACKETT_API_KEY="from-jackett-ui"         # Top right corner in Jackett
+export OMDB_API_KEY="your-omdb-key"  # For ratings
 
 # Optional
-export TRANSMISSION_URL="http://localhost:9091"  # Default
-export JWT_SECRET="your-random-secret"           # For auth tokens
-export PORT="8080"                               # Default
+export PORT="8080"  # Default
 ```
 
-### 4. Build & Run
+### 3. Build & Run
 
 ```bash
 # Server
@@ -108,7 +168,7 @@ cd frontend && flutter pub get && flutter build web --wasm && cd ..
 cd server && dart run bin/server.dart
 ```
 
-Open <http://localhost:8080> — create an account and start browsing.
+Open <http://localhost:8080> — sign in with Google and start browsing.
 
 ---
 
@@ -117,9 +177,7 @@ Open <http://localhost:8080> — create an account and start browsing.
 ### Auth
 
 ```http
-POST /api/auth/register    { username, password }  →  { token, user }
-POST /api/auth/login       { username, password }  →  { token, user }
-GET  /api/auth/me          [Bearer token]          →  { user }
+GET  /api/auth/me    [Bearer token]  →  { user }
 ```
 
 ### Content Discovery
@@ -141,13 +199,12 @@ POST   /api/watched/{movie|tv}/{id}
 DELETE /api/watched/{movie|tv}/{id}
 ```
 
-### Torrents
+### Content Requests
 
 ```http
-GET    /api/torrents/search?q=dune+2024&category=movie
-POST   /api/torrents/download    { url: "magnet:..." }
-GET    /api/torrents/active
-DELETE /api/torrents/{id}?deleteData=true
+GET    /api/requests
+POST   /api/requests/{movie|tv}/{id}    { title, posterPath? }
+DELETE /api/requests/{movie|tv}/{id}
 ```
 
 ---
@@ -164,18 +221,6 @@ DELETE /api/torrents/{id}?deleteData=true
 | `paramount` | Paramount+ |
 | `hulu` | Hulu |
 | `peacock` | Peacock |
-
----
-
-## Data Storage
-
-All data is stored locally:
-
-```text
-~/.downstream_users.json              # Accounts (passwords are hashed)
-~/.downstream_watched.json            # Per-user watch history
-~/.downstream/download_mappings.json  # Torrent → TMDB ID mappings
-```
 
 ---
 
@@ -207,26 +252,20 @@ downstream/
 |-------|------|
 | Frontend | Flutter Web (WASM) |
 | Backend | Dart + shelf |
-| Auth | JWT (dart_jsonwebtoken) |
+| Auth | Firebase Auth (Google Sign-In) |
+| Database | Cloud Firestore |
 | Content | TMDB API |
 | Ratings | OMDB API |
-| Torrents | Jackett + Transmission |
 
 ---
 
 ## Troubleshooting
 
-**"Jackett not configured"**
-→ Set both `JACKETT_URL` and `JACKETT_API_KEY`
-
 **"OMDB not configured"**
 → Set `OMDB_API_KEY` for ratings (optional but recommended)
 
-**"Transmission connection failed"**
-→ Make sure Transmission is running and RPC is enabled (port 9091)
-
-**No torrents found**
-→ Add indexers in Jackett UI at <http://localhost:9117>
+**"Firebase auth failed"**
+→ Check `FIREBASE_PROJECT_ID` and `FIREBASE_SERVICE_ACCOUNT` are set correctly
 
 ---
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
-import 'torrent_search_dialog.dart';
 
 class MediaDetailDialog extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -21,6 +20,8 @@ class MediaDetailDialog extends StatefulWidget {
 class _MediaDetailDialogState extends State<MediaDetailDialog> {
   late bool _watched;
   bool _isUpdating = false;
+  bool _isRequesting = false;
+  bool _requested = false;
   Map<String, dynamic>? _ratings;
   bool _loadingRatings = true;
   List<String> _providers = [];
@@ -98,24 +99,52 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
     }
   }
 
-  void _showTorrentSearch() {
-    final title = widget.item['title'] as String;
-    final year = widget.item['year'] as String? ?? '';
-    final tmdbId = widget.item['id'] as int?;
-    final mediaType = widget.item['mediaType'] as String?;
+  Future<void> _requestMedia() async {
+    setState(() => _isRequesting = true);
 
-    Navigator.of(context).pop();
+    try {
+      final api = context.read<ApiService>();
+      final mediaType = widget.item['mediaType'] as String;
+      final id = widget.item['id'] as int;
+      final title = widget.item['title'] as String;
+      final posterPath = widget.item['posterPath'] as String?;
 
-    // Search without year - dialog will detect ambiguous results and offer filtering
-    showDialog(
-      context: context,
-      builder: (context) => TorrentSearchDialog(
-        initialQuery: title,
-        expectedYear: year.isNotEmpty ? year : null,
-        tmdbId: tmdbId,
+      await api.createRequest(
         mediaType: mediaType,
-      ),
-    );
+        id: id,
+        title: title,
+        posterPath: posterPath,
+      );
+
+      setState(() {
+        _isRequesting = false;
+        _requested = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Requested "$title"')),
+        );
+      }
+    } on ApiException catch (e) {
+      setState(() => _isRequesting = false);
+      if (mounted) {
+        final message = e.statusCode == 409 ? 'Already requested' : 'Error: $e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+        if (e.statusCode == 409) {
+          setState(() => _requested = true);
+        }
+      }
+    } catch (e) {
+      setState(() => _isRequesting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -276,9 +305,18 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: _showTorrentSearch,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Find Torrent'),
+                      onPressed: _isRequesting || _requested ? null : _requestMedia,
+                      icon: _isRequesting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(_requested ? Icons.check : Icons.add),
+                      label: Text(_requested ? 'Requested' : 'Request'),
                     ),
                   ),
                 ],

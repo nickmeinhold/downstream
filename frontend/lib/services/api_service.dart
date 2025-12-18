@@ -136,31 +136,26 @@ class ApiService {
     await _delete('/api/watched/$mediaType/$id');
   }
 
-  // Torrent endpoints
-  Future<List<dynamic>> searchTorrents(String query) async {
-    final data = await _get('/api/torrents/search', {'q': query});
-    return data['results'] as List<dynamic>;
+  // Request endpoints
+  Future<List<dynamic>> getRequests() async {
+    final data = await _get('/api/requests');
+    return data['requests'] as List<dynamic>;
   }
 
-  Future<Map<String, dynamic>> downloadTorrent(
-    String url, {
-    int? tmdbId,
-    String? mediaType,
+  Future<void> createRequest({
+    required String mediaType,
+    required int id,
+    required String title,
+    String? posterPath,
   }) async {
-    return await _post('/api/torrents/download', {
-      'url': url,
-      if (tmdbId != null) 'tmdbId': tmdbId,
-      if (mediaType != null) 'mediaType': mediaType,
+    await _post('/api/requests/$mediaType/$id', {
+      'title': title,
+      if (posterPath != null) 'posterPath': posterPath,
     });
   }
 
-  Future<List<dynamic>> getActiveTorrents() async {
-    final data = await _get('/api/torrents/active');
-    return data['torrents'] as List<dynamic>;
-  }
-
-  Future<void> removeTorrent(int id, {bool deleteData = false}) async {
-    await _delete('/api/torrents/$id', {'deleteData': deleteData.toString()});
+  Future<void> deleteRequest(String mediaType, int id) async {
+    await _delete('/api/requests/$mediaType/$id');
   }
 }
 
