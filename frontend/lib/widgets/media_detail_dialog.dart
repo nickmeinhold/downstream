@@ -31,6 +31,7 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
   void initState() {
     super.initState();
     _watched = widget.item['watched'] as bool? ?? false;
+    _requested = widget.item['requested'] as bool? ?? false;
     // Check if providers already exist in the item data
     final existingProviders = widget.item['providers'] as List<dynamic>? ?? [];
     if (existingProviders.isNotEmpty) {
@@ -136,6 +137,37 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
         if (e.statusCode == 409) {
           setState(() => _requested = true);
         }
+      }
+    } catch (e) {
+      setState(() => _isRequesting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelRequest() async {
+    setState(() => _isRequesting = true);
+
+    try {
+      final api = context.read<ApiService>();
+      final mediaType = widget.item['mediaType'] as String;
+      final id = widget.item['id'] as int;
+      final title = widget.item['title'] as String;
+
+      await api.deleteRequest(mediaType, id);
+
+      setState(() {
+        _isRequesting = false;
+        _requested = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Removed request for "$title"')),
+        );
       }
     } catch (e) {
       setState(() => _isRequesting = false);
@@ -304,20 +336,32 @@ class _MediaDetailDialogState extends State<MediaDetailDialog> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _isRequesting || _requested ? null : _requestMedia,
-                      icon: _isRequesting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Icon(_requested ? Icons.check : Icons.add),
-                      label: Text(_requested ? 'Requested' : 'Request'),
-                    ),
+                    child: _requested
+                        ? OutlinedButton.icon(
+                            onPressed: _isRequesting ? null : _cancelRequest,
+                            icon: _isRequesting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.close),
+                            label: const Text('Remove Request'),
+                          )
+                        : FilledButton.icon(
+                            onPressed: _isRequesting ? null : _requestMedia,
+                            icon: _isRequesting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.add),
+                            label: const Text('Request'),
+                          ),
                   ),
                 ],
               ),

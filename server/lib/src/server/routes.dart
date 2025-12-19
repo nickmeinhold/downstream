@@ -93,8 +93,9 @@ class ApiRoutes {
     final startStr = _formatDate(startDate);
     final endStr = _formatDate(now);
 
-    // Fetch watched keys once for efficiency
+    // Fetch watched and requested keys once for efficiency
     final watchedKeys = await watchHistory.getWatchedKeys(user.uid);
+    final requestedKeys = await watchHistory.getRequestedKeys();
 
     final items = <Map<String, dynamic>>[];
 
@@ -117,6 +118,7 @@ class ApiRoutes {
           items.add({
             ...m.toJson(),
             'watched': watchedKeys.contains(m.uniqueKey),
+            'requested': requestedKeys.contains(m.uniqueKey),
           });
         }
       }
@@ -138,6 +140,7 @@ class ApiRoutes {
           items.add({
             ...t.toJson(),
             'watched': watchedKeys.contains(t.uniqueKey),
+            'requested': requestedKeys.contains(t.uniqueKey),
           });
         }
       }
@@ -158,8 +161,9 @@ class ApiRoutes {
     final window = params['window'] ?? 'week';
     final type = params['type']; // 'movie', 'tv', or null for both
 
-    // Fetch watched keys once for efficiency
+    // Fetch watched and requested keys once for efficiency
     final watchedKeys = await watchHistory.getWatchedKeys(user.uid);
+    final requestedKeys = await watchHistory.getRequestedKeys();
 
     final items = <Map<String, dynamic>>[];
 
@@ -169,6 +173,7 @@ class ApiRoutes {
         items.add({
           ...m.toJson(),
           'watched': watchedKeys.contains(m.uniqueKey),
+          'requested': requestedKeys.contains(m.uniqueKey),
         });
       }
     }
@@ -179,6 +184,7 @@ class ApiRoutes {
         items.add({
           ...t.toJson(),
           'watched': watchedKeys.contains(t.uniqueKey),
+          'requested': requestedKeys.contains(t.uniqueKey),
         });
       }
     }
@@ -192,14 +198,16 @@ class ApiRoutes {
       return _jsonError(400, 'Query parameter q required');
     }
 
-    // Fetch watched keys once for efficiency
+    // Fetch watched and requested keys once for efficiency
     final watchedKeys = await watchHistory.getWatchedKeys(user.uid);
+    final requestedKeys = await watchHistory.getRequestedKeys();
 
     final results = await tmdb.searchMulti(query);
     final items = results
         .map((r) => {
               ...r.toJson(),
               'watched': watchedKeys.contains(r.uniqueKey),
+              'requested': requestedKeys.contains(r.uniqueKey),
             })
         .toList();
 
@@ -212,8 +220,9 @@ class ApiRoutes {
       return _jsonError(400, 'Query parameter q required');
     }
 
-    // Fetch watched keys once for efficiency
+    // Fetch watched and requested keys once for efficiency
     final watchedKeys = await watchHistory.getWatchedKeys(user.uid);
+    final requestedKeys = await watchHistory.getRequestedKeys();
 
     final results = await tmdb.searchMulti(query);
     final items = <Map<String, dynamic>>[];
@@ -225,6 +234,7 @@ class ApiRoutes {
         ...result.toJson(),
         'providers': providers,
         'watched': watchedKeys.contains(result.uniqueKey),
+        'requested': requestedKeys.contains(result.uniqueKey),
       });
     }
 

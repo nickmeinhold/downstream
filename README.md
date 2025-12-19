@@ -124,7 +124,7 @@ sequenceDiagram
 **Key flows:**
 
 | Step | Description |
-|------|-------------|
+| ------ | ------------- |
 | 1-10 | App loads, user authenticates via Google OAuth, receives JWT token |
 | 11-16 | Home screen fetches new releases from TMDB, marks user's watched items |
 | 17-23 | User clicks card, backend fetches ratings from OMDB + providers from TMDB |
@@ -135,7 +135,7 @@ sequenceDiagram
 ### 1. Get API Keys
 
 | Service | Purpose | Link |
-|---------|---------|------|
+| --------- | --------- | ------ |
 | **TMDB** | Content data & posters | [Get free key](https://www.themoviedb.org/settings/api) |
 | **OMDB** | IMDB/RT/Metacritic ratings | [Get free key](https://www.omdbapi.com/apikey.aspx) |
 | **Firebase** | Auth & Firestore | [Firebase Console](https://console.firebase.google.com) |
@@ -212,7 +212,7 @@ DELETE /api/requests/{movie|tv}/{id}
 ## Supported Providers
 
 | Key | Provider |
-|-----|----------|
+| ----- | ---------- |
 | `netflix` | Netflix |
 | `disney` | Disney+ |
 | `apple` | Apple TV+ |
@@ -249,7 +249,7 @@ downstream/
 ## Tech Stack
 
 | Layer | Tech |
-|-------|------|
+| ------- | ------ |
 | Frontend | Flutter Web (WASM) |
 | Backend | Dart + shelf |
 | Auth | Firebase Auth (Google Sign-In) |

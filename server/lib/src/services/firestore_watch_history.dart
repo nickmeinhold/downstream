@@ -155,6 +155,22 @@ class FirestoreWatchHistory {
     }).toList();
   }
 
+  /// Get all requested media keys
+  Future<Set<String>> getRequestedKeys() async {
+    final url = '$_baseUrl/requests';
+    final response = await _client.get(Uri.parse(url));
+
+    if (response.statusCode != 200) return {};
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final documents = data['documents'] as List<dynamic>? ?? [];
+
+    return documents.map((doc) {
+      final name = doc['name'] as String;
+      return name.split('/').last; // Extract document ID (the media key)
+    }).toSet();
+  }
+
   /// Check if a media item has already been requested
   Future<bool> isRequested(String mediaType, int tmdbId) async {
     final mediaKey = '${mediaType}_$tmdbId';
