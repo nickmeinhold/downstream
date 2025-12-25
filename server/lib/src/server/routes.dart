@@ -41,8 +41,9 @@ class ApiRoutes {
     router.post('/watched/<mediaType>/<id>', _withAuth(_markWatched));
     router.delete('/watched/<mediaType>/<id>', _withAuth(_unmarkWatched));
 
-    // Request routes
+    // Request routes (more specific routes first)
     router.get('/requests', _withAuth(_getRequests));
+    router.post('/requests/<mediaType>/<id>/reset', _withAuth(_resetRequest));
     router.post('/requests/<mediaType>/<id>', _withAuth(_createRequest));
     router.delete('/requests/<mediaType>/<id>', _withAuth(_deleteRequest));
 
@@ -400,6 +401,22 @@ class ApiRoutes {
     }
 
     await watchHistory.deleteRequest(mediaType, id);
+    return _jsonOk({'success': true});
+  }
+
+  Future<Response> _resetRequest(Request request, FirebaseUser user) async {
+    final mediaType = request.params['mediaType'];
+    final idStr = request.params['id'];
+    if (mediaType == null || idStr == null) {
+      return _jsonError(400, 'Invalid parameters');
+    }
+
+    final id = int.tryParse(idStr);
+    if (id == null) {
+      return _jsonError(400, 'Invalid ID');
+    }
+
+    await watchHistory.resetRequest(mediaType, id);
     return _jsonOk({'success': true});
   }
 

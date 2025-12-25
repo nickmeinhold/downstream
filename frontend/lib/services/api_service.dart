@@ -157,6 +157,10 @@ class ApiService {
   Future<void> deleteRequest(String mediaType, int id) async {
     await _delete('/api/requests/$mediaType/$id');
   }
+
+  Future<void> resetRequest(String mediaType, int id) async {
+    await _post('/api/requests/$mediaType/$id/reset');
+  }
 }
 
 class ApiException implements Exception {

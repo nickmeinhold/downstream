@@ -63,11 +63,25 @@ class _HomeScreenState extends State<HomeScreen> {
   void _updateQueueTimer() {
     _queueRefreshTimer?.cancel();
     if (_selectedIndex == 3) {
-      // Auto-refresh Queue tab every 5 seconds
+      // Auto-refresh Queue tab every 5 seconds (silent refresh)
       _queueRefreshTimer = Timer.periodic(
         const Duration(seconds: 5),
-        (_) => _loadContent(),
+        (_) => _refreshQueue(),
       );
+    }
+  }
+
+  /// Silent refresh for Queue tab - doesn't show loading indicator
+  Future<void> _refreshQueue() async {
+    if (_selectedIndex != 3) return;
+    try {
+      final api = context.read<ApiService>();
+      final items = await api.getRequests();
+      if (mounted) {
+        setState(() => _items = items);
+      }
+    } catch (_) {
+      // Silently ignore errors on background refresh
     }
   }
 
@@ -133,6 +147,25 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) =>
           MediaDetailDialog(item: item, onWatchedChanged: () => setState(() {})),
     );
+  }
+
+  Future<void> _retryRequest(String mediaType, int id) async {
+    try {
+      final api = context.read<ApiService>();
+      await api.resetRequest(mediaType, id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request reset to pending')),
+        );
+      }
+      _loadContent();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to retry: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -425,7 +458,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Use QueueList for Queue tab, MediaGrid for others
     if (_selectedIndex == 3) {
-      return QueueList(items: _items, onRefresh: _loadContent);
+      return QueueList(
+        items: _items,
+        onRefresh: _loadContent,
+        onRetry: _retryRequest,
+      );
     }
     return MediaGrid(items: _items, onTap: _showMediaDetail);
   }

@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class QueueList extends StatelessWidget {
   final List<dynamic> items;
   final VoidCallback onRefresh;
+  final Future<void> Function(String mediaType, int id)? onRetry;
 
   const QueueList({
     super.key,
     required this.items,
     required this.onRefresh,
+    this.onRetry,
   });
 
   @override
@@ -16,16 +18,20 @@ class QueueList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _QueueItem(item: items[index]),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) => _QueueItem(
+        item: items[index],
+        onRetry: onRetry,
+      ),
     );
   }
 }
 
 class _QueueItem extends StatelessWidget {
   final Map<String, dynamic> item;
+  final Future<void> Function(String mediaType, int id)? onRetry;
 
-  const _QueueItem({required this.item});
+  const _QueueItem({required this.item, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -155,12 +161,31 @@ class _QueueItem extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  // Requested info
-                  Text(
-                    'Requested ${_formatTimeAgo(requestedAt)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  // Requested info and retry button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Requested ${_formatTimeAgo(requestedAt)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                         ),
+                      ),
+                      if (status == 'failed' && onRetry != null)
+                        TextButton.icon(
+                          onPressed: () {
+                            final mediaType = item['mediaType'] as String? ?? 'movie';
+                            final tmdbId = item['tmdbId'] as int? ?? 0;
+                            onRetry!(mediaType, tmdbId);
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Retry'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

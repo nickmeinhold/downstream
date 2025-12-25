@@ -201,4 +201,22 @@ class FirestoreWatchHistory {
     final docPath = 'requests/$mediaKey';
     await _client.delete(Uri.parse('$_baseUrl/$docPath'));
   }
+
+  /// Reset a failed request back to pending
+  Future<void> resetRequest(String mediaType, int tmdbId) async {
+    final mediaKey = '${mediaType}_$tmdbId';
+    final docPath = 'requests/$mediaKey';
+    final url = '$_baseUrl/$docPath?updateMask.fieldPaths=status&updateMask.fieldPaths=errorMessage';
+
+    await _client.patch(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'fields': {
+          'status': {'stringValue': 'pending'},
+          'errorMessage': {'nullValue': null},
+        },
+      }),
+    );
+  }
 }
