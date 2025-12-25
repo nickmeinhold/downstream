@@ -223,9 +223,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Row(
-        children: [
-          NavigationRail(
+      body: SelectionArea(
+        child: Row(
+          children: [
+            NavigationRail(
             selectedIndex: _selectedIndex,
             onDestinationSelected: (index) {
               setState(() => _selectedIndex = index);
@@ -257,15 +258,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const VerticalDivider(thickness: 1, width: 1),
-          Expanded(
-            child: Column(
-              children: [
-                _buildFilters(),
-                Expanded(child: _buildContent()),
-              ],
+            Expanded(
+              child: Column(
+                children: [
+                  _buildFilters(),
+                  Expanded(child: _buildContent()),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
